@@ -9,14 +9,24 @@ export interface RequestContext {
   url: URL;
   headers: Headers;
   clientIp: string;
+  method: string;
 }
 
 // Get request context from incoming request
 export function getRequestContext(req: Request): RequestContext {
+  const url = new URL(req.url);
+  const headers = new Headers({
+    "content-type": "application/json",
+  });
+
   return {
-    url: new URL(req.url),
-    headers: new Headers(),
-    clientIp: req.headers.get("cf-connecting-ip") || "unknown",
+    url,
+    headers,
+    method: req.method,
+    clientIp:
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-forwarded-for") ||
+      "unknown",
   };
 }
 
@@ -38,7 +48,7 @@ export function checkRateLimit(clientIp: string): boolean {
 }
 
 // Set common response headers
-export function setCommonHeaders(headers: Headers) {
+export function setCommonHeaders(headers: Headers): Headers {
   headers.set(
     "Cache-Control",
     "public, max-age=10, s-maxage=30, must-revalidate"
@@ -49,17 +59,30 @@ export function setCommonHeaders(headers: Headers) {
 // Create rate limit exceeded response
 export function getRateLimitResponse(headers: Headers): Response {
   headers.set("Retry-After", "60");
-  return new Response("Rate limit exceeded", { status: 429, headers });
+  return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+    status: 429,
+    headers,
+  });
 }
 
 // Create error response
 export function getErrorResponse(error: unknown, headers: Headers): Response {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+
   log(LogLevel.ERROR, "Request failed", {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage,
+    stack: error instanceof Error ? error.stack : undefined,
   });
 
-  return new Response(JSON.stringify({ error: "Internal server error" }), {
-    status: 500,
-    headers,
-  });
+  return new Response(
+    JSON.stringify({
+      error: "Internal server error",
+      message:
+        Deno.env.get("DENO_ENV") === "development" ? errorMessage : undefined,
+    }),
+    {
+      status: 500,
+      headers,
+    }
+  );
 }

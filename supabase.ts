@@ -1,10 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.1";
 import { log, LogLevel } from "./log.ts";
 
 // Initialize Supabase client
 export const supabase = (() => {
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_KEY;
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SUPABASE_KEY = Deno.env.get("SUPABASE_KEY");
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     log(LogLevel.ERROR, "Missing Supabase environment variables");
     throw new Error("Missing Supabase environment variables");
